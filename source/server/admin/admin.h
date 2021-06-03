@@ -316,18 +316,16 @@ private:
 
     // Network::ListenSocketFactory
     Network::Socket::Type socketType() const override { return socket_->socketType(); }
-
     const Network::Address::InstanceConstSharedPtr& localAddress() const override {
       return socket_->addressProvider().localAddress();
     }
-
-    Network::SocketSharedPtr getListenSocket() override {
+    Network::SocketSharedPtr getListenSocket(uint32_t) override {
       // This is only supposed to be called once.
       RELEASE_ASSERT(!socket_create_, "AdminListener's socket shouldn't be shared.");
       socket_create_ = true;
       return socket_;
     }
-
+    void closeAllSockets() override {}
     Network::SocketOptRef sharedSocket() const override { return absl::nullopt; }
 
   private:

@@ -32,6 +32,14 @@ Minor Behavior Changes
 * http: serve HEAD requests from cache.
 * http: the behavior of the *present_match* in route header matcher changed. The value of *present_match* is ignored in the past. The new behavior is *present_match* performed when value is true. absent match performed when the value is false. Please reference :ref:`present_match
   <envoy_v3_api_field_config.route.v3.HeaderMatcher.present_match>`.
+* listener: added the :ref:`enable_reuse_port <envoy_v3_api_field_config.listener.v3.Listener.enable_reuse_port>`
+  field and changed the default for reuse port from false to true, as the feature is now well
+  supported on the majority of production kernels in use. The default change is aware of hot
+  restart, as otherwise the change would not be backwards compatible between restarts. This means
+  that hot restarting on to a new binary will retain the default of false until the binary undergoes
+  a full restart. To retain the previous behavior, either explicitly set the new configuration
+  field to false, or set the runtime feature flag `envoy.reloadable_features.listener_reuse_port_default_enabled`
+  to false.
 * listener: respect the :ref:`connection balance config <envoy_v3_api_field_config.listener.v3.Listener.connection_balance_config>`
   defined within the listener where the sockets are redirected to. Clear that field to restore the previous behavior.
 * tcp: switched to the new connection pool by default. Any unexpected behavioral changes can be reverted by setting runtime guard ``envoy.reloadable_features.new_tcp_connection_pool`` to false.
@@ -103,3 +111,6 @@ Deprecated
 * cluster: the fields :ref:`use_tcp_for_dns_lookups <envoy_v3_api_field_config.cluster.v3.Cluster.use_tcp_for_dns_lookups>` and :ref:`dns_resolvers <envoy_v3_api_field_config.cluster.v3.Cluster.dns_resolvers>` are deprecated in favor of :ref:`dns_resolution_config <envoy_v3_api_field_config.cluster.v3.Cluster.dns_resolution_config>` which aggregates all of the DNS resolver configuration in a single message.
 * dynamic_forward_proxy: the field :ref:`use_tcp_for_dns_lookups <envoy_v3_api_field_extensions.common.dynamic_forward_proxy.v3.DnsCacheConfig.use_tcp_for_dns_lookups>` is deprecated in favor of :ref:`dns_resolution_config <envoy_v3_api_field_extensions.common.dynamic_forward_proxy.v3.DnsCacheConfig.dns_resolution_config>` which aggregates all of the DNS resolver configuration in a single message.
 * http: :ref:`xff_num_trusted_hops <envoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.xff_num_trusted_hops>` is deprecated in favor of :ref:`original IP detection extensions<envoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.original_ip_detection_extensions>`.
+* listener: :ref:`reuse_port <envoy_v3_api_field_config.listener.v3.Listener.reuse_port>` has been
+  deprecated in favor of :ref:`enable_reuse_port <envoy_v3_api_field_config.listener.v3.Listener.enable_reuse_port>`.
+  At the same time, the default has been changed from false to true. See above for more information.

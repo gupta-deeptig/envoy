@@ -701,13 +701,12 @@ private:
 
     // Network::ListenSocketFactory
     Network::Socket::Type socketType() const override { return socket_->socketType(); }
-
     const Network::Address::InstanceConstSharedPtr& localAddress() const override {
       return socket_->addressProvider().localAddress();
     }
-
-    Network::SocketSharedPtr getListenSocket() override { return socket_; }
+    Network::SocketSharedPtr getListenSocket(uint32_t) override { return socket_; }
     Network::SocketOptRef sharedSocket() const override { return *socket_; }
+    void closeAllSockets() override {} // fixfix
 
   private:
     Network::SocketSharedPtr socket_;

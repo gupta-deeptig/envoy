@@ -193,7 +193,7 @@ Network::SocketSharedPtr ProdListenerComponentFactory::createListenSocket(
   ASSERT(socket_type == Network::Socket::Type::Stream ||
          socket_type == Network::Socket::Type::Datagram);
 
-  // For each listener config we share a single socket among all threaded listeners.
+  // For each listener config we share a single socket among all threaded listeners. fixfix
   // First we try to get the socket from our parent if applicable.
   if (address->type() == Network::Address::Type::Pipe) {
     if (socket_type != Network::Socket::Type::Stream) {
@@ -443,7 +443,8 @@ bool ListenerManagerImpl::addOrUpdateListenerInternal(
     ASSERT(workers_started_);
     new_listener->debugLog("update warming listener");
     if (*(*existing_warming_listener)->address() != *new_listener->address()) {
-      setNewOrDrainingSocketFactory(name, config.address(), *new_listener, config.reuse_port());
+      setNewOrDrainingSocketFactory(name, config.address(), *new_listener,
+                                    ListenerImpl::enableReusePort(server_, config));
     } else {
       new_listener->setSocketFactory((*existing_warming_listener)->getSocketFactory());
     }
@@ -452,7 +453,8 @@ bool ListenerManagerImpl::addOrUpdateListenerInternal(
     // In this case we have no warming listener, so what we do depends on whether workers
     // have been started or not.
     if (*(*existing_active_listener)->address() != *new_listener->address()) {
-      setNewOrDrainingSocketFactory(name, config.address(), *new_listener, config.reuse_port());
+      setNewOrDrainingSocketFactory(name, config.address(), *new_listener,
+                                    ListenerImpl::enableReusePort(server_, config));
     } else {
       new_listener->setSocketFactory((*existing_active_listener)->getSocketFactory());
     }
@@ -466,7 +468,8 @@ bool ListenerManagerImpl::addOrUpdateListenerInternal(
   } else {
     // We have no warming or active listener so we need to make a new one. What we do depends on
     // whether workers have been started or not.
-    setNewOrDrainingSocketFactory(name, config.address(), *new_listener, config.reuse_port());
+    setNewOrDrainingSocketFactory(name, config.address(), *new_listener,
+                                  ListenerImpl::enableReusePort(server_, config));
     if (workers_started_) {
       new_listener->debugLog("add warming listener");
       warming_listeners_.emplace_back(std::move(new_listener));
@@ -501,7 +504,9 @@ bool ListenerManagerImpl::hasListenerWithAddress(const ListenerList& list,
 
 bool ListenerManagerImpl::shareSocketWithOtherListener(
     const ListenerList& list, const Network::ListenSocketFactorySharedPtr& socket_factory) {
-  ASSERT(socket_factory->sharedSocket().has_value());
+  if (!socket_factory->sharedSocket().has_value()) {
+    return false;
+  }
   for (const auto& listener : list) {
     if (listener->getSocketFactory() == socket_factory) {
       return true;
@@ -522,30 +527,21 @@ void ListenerManagerImpl::drainListener(ListenerImplPtr&& listener) {
   // Tell all workers to stop accepting new connections on this listener.
   draining_it->listener_->debugLog("draining listener");
   const uint64_t listener_tag = draining_it->listener_->listenerTag();
-  stopListener(
-      *draining_it->listener_,
-      [this,
-       share_socket = draining_it->listener_->listenSocketFactory().sharedSocket().has_value(),
-       listener_tag]() {
-        if (!share_socket) {
-          // Each listener has its individual socket and closes the socket on its own.
-          return;
+  stopListener(*draining_it->listener_, [this, listener_tag]() {
+    for (auto& listener : draining_listeners_) {
+      if (listener.listener_->listenerTag() == listener_tag) {
+        // Handle the edge case when new listener is added for the same address as the drained
+        // one. In this case the socket is shared between both listeners so one should avoid
+        // closing it.
+        const auto& socket_factory = listener.listener_->getSocketFactory();
+        if (!shareSocketWithOtherListener(active_listeners_, socket_factory) &&
+            !shareSocketWithOtherListener(warming_listeners_, socket_factory)) {
+          // Close the socket iff it is not used anymore.
+          listener.listener_->listenSocketFactory().closeAllSockets();
         }
-        for (auto& listener : draining_listeners_) {
-          if (listener.listener_->listenerTag() == listener_tag) {
-            // Handle the edge case when new listener is added for the same address as the drained
-            // one. In this case the socket is shared between both listeners so one should avoid
-            // closing it.
-            const auto& socket_factory = listener.listener_->getSocketFactory();
-            if (!shareSocketWithOtherListener(active_listeners_, socket_factory) &&
-                !shareSocketWithOtherListener(warming_listeners_, socket_factory)) {
-              // Close the socket iff it is not used anymore.
-              ASSERT(listener.listener_->listenSocketFactory().sharedSocket().has_value());
-              listener.listener_->listenSocketFactory().sharedSocket()->get().close();
-            }
-          }
-        }
-      });
+      }
+    }
+  });
 
   // Start the drain sequence which completes when the listener's drain manager has completed
   // draining at whatever the server configured drain times are.
@@ -631,7 +627,7 @@ void ListenerManagerImpl::addListenerToWorker(Worker& worker,
                                               ListenerCompletionCallback completion_callback) {
   if (overridden_listener.has_value()) {
     ENVOY_LOG(debug, "replacing existing listener {}", overridden_listener.value());
-    worker.addListener(overridden_listener, listener, [this, completion_callback](bool) -> void {
+    worker.addListener(overridden_listener, listener, [this, completion_callback]() -> void {
       server_.dispatcher().post([this, completion_callback]() -> void {
         stats_.listener_create_success_.inc();
         if (completion_callback) {
@@ -641,41 +637,26 @@ void ListenerManagerImpl::addListenerToWorker(Worker& worker,
     });
     return;
   }
-  worker.addListener(
-      overridden_listener, listener, [this, &listener, completion_callback](bool success) -> void {
-        // The add listener completion runs on the worker thread. Post back to the main thread to
-        // avoid locking.
-        server_.dispatcher().post([this, success, &listener, completion_callback]() -> void {
-          // It is possible for a listener to get added on 1 worker but not the others. The below
-          // check with onListenerCreateFailure() is there to ensure we execute the
-          // removal/logging/stats at most once on failure. Note also that drain/removal can race
-          // with addition. It's guaranteed that workers process remove after add so this should be
-          // fine.
-          //
-          // TODO(mattklein123): We should consider rewriting how listener sockets are added to
-          // workers, especially in the case of reuse port. If we were to create all needed
-          // listener sockets on the main thread (even in the case of reuse port) we could catch
-          // almost all socket errors here. This would both greatly simplify the logic and allow
-          // for xDS NACK in most cases.
-          if (!success && !listener.onListenerCreateFailure()) {
-            ENVOY_LOG(error, "listener '{}' failed to listen on address '{}' on worker",
-                      listener.name(), listener.listenSocketFactory().localAddress()->asString());
-            stats_.listener_create_failure_.inc();
-            removeListenerInternal(listener.name(), false);
-          }
-          if (success) {
-            stats_.listener_create_success_.inc();
-          }
-          if (completion_callback) {
-            completion_callback();
-          }
-        });
-      });
+  worker.addListener(overridden_listener, listener, [this, completion_callback]() -> void {
+    // The add listener completion runs on the worker thread. Post back to the main thread to
+    // avoid locking.
+    server_.dispatcher().post([this, completion_callback]() -> void {
+      // ENVOY_LOG(error, "listener '{}' failed to listen on address '{}' on worker",
+      //          listener.name(), listener.listenSocketFactory().localAddress()->asString());
+      // stats_.listener_create_failure_.inc();
+      // fixfixremoveListenerInternal(listener.name(), false);
+      stats_.listener_create_success_.inc();
+      if (completion_callback) {
+        completion_callback();
+      }
+    });
+  });
 }
 
 void ListenerManagerImpl::onListenerWarmed(ListenerImpl& listener) {
   // The warmed listener should be added first so that the worker will accept new connections
   // when it stops listening on the old listener.
+  // fixfix initialize all sockets / listen / etc.
   for (const auto& worker : workers_) {
     addListenerToWorker(*worker, absl::nullopt, listener, nullptr);
   }
@@ -711,6 +692,7 @@ void ListenerManagerImpl::inPlaceFilterChainUpdate(ListenerImpl& listener) {
   ASSERT(existing_active_listener != active_listeners_.end());
   ASSERT(*existing_active_listener != nullptr);
 
+  // fixfix initialize all sockets / listen / etc.
   for (const auto& worker : workers_) {
     // Explicitly override the existing listener with a new listener config.
     addListenerToWorker(*worker, listener.listenerTag(), listener, nullptr);
@@ -838,6 +820,7 @@ void ListenerManagerImpl::startWorkers(GuardDog& guard_dog, std::function<void()
   // case in main_common_test fails with ASAN error if we use "Cleanup" here.
   const auto listeners_pending_init =
       std::make_shared<std::atomic<uint64_t>>(workers_.size() * active_listeners_.size());
+  // fixfix initialize all sockets / listen / etc.
   for (const auto& worker : workers_) {
     ENVOY_LOG(debug, "starting worker {}", i);
     ASSERT(warming_listeners_.empty());
@@ -889,21 +872,14 @@ void ListenerManagerImpl::stopListeners(StopListenersType stop_listeners_type) {
       // Close the socket once all workers stopped accepting its connections.
       // This allows clients to fast fail instead of waiting in the accept queue.
       const uint64_t listener_tag = listener.listenerTag();
-      stopListener(listener,
-                   [this, share_socket = listener.listenSocketFactory().sharedSocket().has_value(),
-                    listener_tag]() {
-                     stats_.listener_stopped_.inc();
-                     if (!share_socket) {
-                       // Each listener has its own socket and closes the socket
-                       // on its own.
-                       return;
-                     }
-                     for (auto& listener : active_listeners_) {
-                       if (listener->listenerTag() == listener_tag) {
-                         listener->listenSocketFactory().sharedSocket()->get().close();
-                       }
-                     }
-                   });
+      stopListener(listener, [this, listener_tag]() {
+        stats_.listener_stopped_.inc();
+        for (auto& listener : active_listeners_) {
+          if (listener->listenerTag() == listener_tag) {
+            listener->listenSocketFactory().closeAllSockets();
+          }
+        }
+      });
     }
   }
 }
@@ -1009,7 +985,7 @@ void ListenerManagerImpl::setNewOrDrainingSocketFactory(
   // Search through draining listeners to see if there is a listener that has a socket factory for
   // the same address we are configured for and doesn't use SO_REUSEPORT. This is an edge case, but
   // may happen if a listener is removed and then added back with a same or different name and
-  // intended to listen on the same address. This should work and not fail.
+  // intended to listen on the same address. This should work and not fail. fixfix
   Network::ListenSocketFactorySharedPtr draining_listen_socket_factory;
   auto existing_draining_listener = std::find_if(
       draining_listeners_.cbegin(), draining_listeners_.cend(),
@@ -1039,7 +1015,7 @@ Network::ListenSocketFactorySharedPtr ListenerManagerImpl::createListenSocketFac
   Network::Socket::Type socket_type = Network::Utility::protobufAddressSocketType(proto_address);
   return std::make_shared<ListenSocketFactoryImpl>(
       factory_, listener.address(), socket_type, listener.listenSocketOptions(),
-      listener.bindToPort(), listener.name(), reuse_port);
+      listener.bindToPort(), listener.name(), reuse_port, server_.options().concurrency());
 }
 
 ApiListenerOptRef ListenerManagerImpl::apiListener() {

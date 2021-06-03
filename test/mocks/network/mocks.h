@@ -347,8 +347,9 @@ public:
 
   MOCK_METHOD(Network::Socket::Type, socketType, (), (const));
   MOCK_METHOD(const Network::Address::InstanceConstSharedPtr&, localAddress, (), (const));
-  MOCK_METHOD(Network::SocketSharedPtr, getListenSocket, ());
+  MOCK_METHOD(Network::SocketSharedPtr, getListenSocket, (uint32_t));
   MOCK_METHOD(SocketOptRef, sharedSocket, (), (const));
+  MOCK_METHOD(void, closeAllSockets, ());
 };
 
 class MockUdpPacketWriterFactory : public UdpPacketWriterFactory {

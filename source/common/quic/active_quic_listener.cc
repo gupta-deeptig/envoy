@@ -30,9 +30,9 @@ ActiveQuicListener::ActiveQuicListener(
     bool kernel_worker_routing, const envoy::config::core::v3::RuntimeFeatureFlag& enabled,
     QuicStatNames& quic_stat_names, uint32_t packets_received_to_connection_count_ratio)
     : ActiveQuicListener(worker_index, concurrency, dispatcher, parent,
-                         listener_config.listenSocketFactory().getListenSocket(), listener_config,
-                         quic_config, std::move(options), kernel_worker_routing, enabled,
-                         quic_stat_names, packets_received_to_connection_count_ratio) {}
+                         listener_config.listenSocketFactory().getListenSocket(worker_index),
+                         listener_config, quic_config, std::move(options), kernel_worker_routing,
+                         enabled, quic_stat_names, packets_received_to_connection_count_ratio) {}
 
 ActiveQuicListener::ActiveQuicListener(
     uint32_t worker_index, uint32_t concurrency, Event::Dispatcher& dispatcher,
@@ -64,9 +64,10 @@ ActiveQuicListener::ActiveQuicListener(
         options, listen_socket_, envoy::config::core::v3::SocketOption::STATE_BOUND);
     if (!ok) {
       // TODO(fcoras): consider removing the fd from the log message
+      // fixfix do this on the main thread
       ENVOY_LOG(warn, "Failed to apply socket options to socket {} on listener {} after binding",
                 listen_socket_.ioHandle().fdDoNotUse(), listener_config.name());
-      throw Network::CreateListenerException("Failed to apply socket options.");
+      throw Network::SocketOptionException("Failed to apply socket options.");
     }
     listen_socket_.addOptions(options);
   }
@@ -257,6 +258,7 @@ Network::ConnectionHandler::ActiveUdpListenerPtr ActiveQuicListenerFactory::crea
   bool kernel_worker_routing = false;
   std::unique_ptr<Network::Socket::Options> options = std::make_unique<Network::Socket::Options>();
 
+// fixfix move this to main thread.
 #if defined(SO_ATTACH_REUSEPORT_CBPF) && defined(__linux__)
   // This BPF filter reads the 1st word of QUIC connection id in the UDP payload and mods it by the
   // number of workers to get the socket index in the SO_REUSEPORT socket groups. QUIC packets

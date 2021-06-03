@@ -98,6 +98,8 @@ void TcpListenerImpl::onSocketEvent(short flags) {
 void TcpListenerImpl::setupServerSocket(Event::DispatcherImpl& dispatcher, Socket& socket) {
   ASSERT(bind_to_port_);
 
+  // fixfix do this on the main thread.
+  // fixfix error handling?
   socket.ioHandle().listen(backlog_size_);
 
   // Although onSocketEvent drains to completion, use level triggered mode to avoid potential
@@ -108,8 +110,8 @@ void TcpListenerImpl::setupServerSocket(Event::DispatcherImpl& dispatcher, Socke
 
   if (!Network::Socket::applyOptions(socket.options(), socket,
                                      envoy::config::core::v3::SocketOption::STATE_LISTENING)) {
-    throw CreateListenerException(fmt::format("cannot set post-listen socket option on socket: {}",
-                                              socket.addressProvider().localAddress()->asString()));
+    throw SocketOptionException(fmt::format("cannot set post-listen socket option on socket: {}",
+                                            socket.addressProvider().localAddress()->asString()));
   }
 }
 

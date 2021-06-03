@@ -36,10 +36,16 @@ public:
 
   /**
    * Called during actual listener creation.
+   * @param worker_index fixfix
    * @return the socket to be used for a certain listener, which might be shared
    * with other listeners of the same config on other worker threads.
    */
-  virtual SocketSharedPtr getListenSocket() PURE;
+  virtual SocketSharedPtr getListenSocket(uint32_t worker_index) PURE;
+
+  /**
+   * fixfix
+   */
+  virtual void closeAllSockets() PURE;
 
   /**
    * @return the type of the socket getListenSocket() returns.

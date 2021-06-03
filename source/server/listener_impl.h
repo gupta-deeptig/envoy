@@ -19,8 +19,6 @@
 #include "source/common/init/target_impl.h"
 #include "source/server/filter_chain_manager_impl.h"
 
-#include "absl/base/call_once.h"
-
 #ifdef ENVOY_ENABLE_QUIC
 #include "source/common/quic/quic_stat_names.h"
 #endif
@@ -46,44 +44,38 @@ public:
                           Network::Address::InstanceConstSharedPtr address,
                           Network::Socket::Type socket_type,
                           const Network::Socket::OptionsSharedPtr& options, bool bind_to_port,
-                          const std::string& listener_name, bool reuse_port);
+                          const std::string& listener_name, bool reuse_port, uint32_t num_sockets);
 
   // Network::ListenSocketFactory
   Network::Socket::Type socketType() const override { return socket_type_; }
   const Network::Address::InstanceConstSharedPtr& localAddress() const override {
     return local_address_;
   }
-
-  Network::SocketSharedPtr getListenSocket() override;
-
-  /**
-   * @return the socket shared by worker threads; otherwise return null.
-   */
+  Network::SocketSharedPtr getListenSocket(uint32_t socket_index) override;
+  void closeAllSockets() override {
+    sockets_.clear(); // fixfix
+  }
   Network::SocketOptRef sharedSocket() const override {
-    if (!reuse_port_) {
-      ASSERT(socket_ != nullptr);
-      return *socket_;
+    if (use_shared_socket_) {
+      return *sockets_[0];
     }
     // If reuse_port is true, always return null, even socket_ is created for reserving
     // port number.
     return absl::nullopt;
   }
 
-protected:
-  Network::SocketSharedPtr createListenSocketAndApplyOptions();
-
 private:
-  ListenerComponentFactory& factory_;
+  Network::SocketSharedPtr createListenSocketAndApplyOptions(
+      ListenerComponentFactory& factory, Network::Socket::Type socket_type,
+      const Network::Socket::OptionsSharedPtr& options, bool bind_to_port,
+      const std::string& listener_name, bool reuse_port);
+
   // Initially, its port number might be 0. Once a socket is created, its port
   // will be set to the binding port.
   Network::Address::InstanceConstSharedPtr local_address_;
-  Network::Socket::Type socket_type_;
-  const Network::Socket::OptionsSharedPtr options_;
-  bool bind_to_port_;
-  const std::string listener_name_;
-  const bool reuse_port_;
-  Network::SocketSharedPtr socket_;
-  absl::once_flag steal_once_;
+  const Network::Socket::Type socket_type_;
+  bool use_shared_socket_{}; // fixfix can we get rid of this?
+  std::vector<Network::SocketSharedPtr> sockets_;
 };
 
 // TODO(mattklein123): Consider getting rid of pre-worker start and post-worker start code by
@@ -261,16 +253,6 @@ public:
   bool blockUpdate(uint64_t new_hash) { return new_hash == hash_ || !added_via_api_; }
   bool blockRemove() { return !added_via_api_; }
 
-  /**
-   * Called when a listener failed to be actually created on a worker.
-   * @return TRUE if we have seen more than one worker failure.
-   */
-  bool onListenerCreateFailure() {
-    bool ret = saw_listener_create_failure_;
-    saw_listener_create_failure_ = true;
-    return ret;
-  }
-
   Network::Address::InstanceConstSharedPtr address() const { return address_; }
   const envoy::config::listener::v3::Listener& config() const { return config_; }
   const Network::ListenSocketFactorySharedPtr& getSocketFactory() const { return socket_factory_; }
@@ -283,6 +265,8 @@ public:
   void setSocketAndOptions(const Network::SocketSharedPtr& socket);
   const Network::Socket::OptionsSharedPtr& listenSocketOptions() { return listen_socket_options_; }
   const std::string& versionInfo() const { return version_info_; }
+  static bool enableReusePort(Server::Instance& server,
+                              const envoy::config::listener::v3::Listener& config);
 
   // Network::ListenerConfig
   Network::FilterChainManager& filterChainManager() override { return filter_chain_manager_; }
@@ -404,7 +388,6 @@ private:
   std::vector<Network::UdpListenerFilterFactoryCb> udp_listener_filter_factories_;
   std::vector<AccessLog::InstanceSharedPtr> access_logs_;
   DrainManagerPtr local_drain_manager_;
-  bool saw_listener_create_failure_{};
   const envoy::config::listener::v3::Listener config_;
   const std::string version_info_;
   Network::Socket::OptionsSharedPtr listen_socket_options_;
