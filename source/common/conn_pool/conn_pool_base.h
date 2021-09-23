@@ -45,6 +45,9 @@ public:
   // Called if the connection does not complete within the cluster's connectTimeout()
   void onConnectTimeout();
 
+  // Called if the configured max duration is reached for the connecton
+  void onConnectionDurationTimeout();
+
   // Returns the concurrent stream limit, accounting for if the total stream limit
   // is less than the concurrent stream limit.
   uint32_t effectiveConcurrentStreamLimit() const {
@@ -106,6 +109,7 @@ public:
   Stats::TimespanPtr conn_connect_ms_;
   Stats::TimespanPtr conn_length_;
   Event::TimerPtr connect_timer_;
+  Event::TimerPtr connection_duration_timer_;
   bool resources_released_{false};
   bool timed_out_{false};
 
