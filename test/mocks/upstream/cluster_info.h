@@ -220,5 +220,11 @@ public:
   ~MockIdleTimeEnabledClusterInfo() override;
 };
 
+class MockMaxConnectionDurationEnabledClusterInfo : public MockClusterInfo {
+public:
+  MockMaxConnectionDurationEnabledClusterInfo();
+  ~MockMaxConnectionDurationEnabledClusterInfo() override;
+};
+
 } // namespace Upstream
 } // namespace Envoy

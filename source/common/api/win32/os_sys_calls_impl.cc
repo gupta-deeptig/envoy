@@ -173,7 +173,7 @@ SysCallSizeResult OsSysCallsImpl::recvmsg(os_fd_t sockfd, msghdr* msg, int flags
 
 SysCallIntResult OsSysCallsImpl::recvmmsg(os_fd_t sockfd, struct mmsghdr* msgvec, unsigned int vlen,
                                           int flags, struct timespec* timeout) {
-  NOT_IMPLEMENTED_GCOVR_EXCL_LINE;
+  PANIC("not implemented");
 }
 
 bool OsSysCallsImpl::supportsMmsg() const {
@@ -192,6 +192,11 @@ bool OsSysCallsImpl::supportsUdpGso() const {
 }
 
 bool OsSysCallsImpl::supportsIpTransparent() const {
+  // Windows doesn't support it.
+  return false;
+}
+
+bool OsSysCallsImpl::supportsMptcp() const {
   // Windows doesn't support it.
   return false;
 }
@@ -404,9 +409,19 @@ SysCallBoolResult OsSysCallsImpl::socketTcpInfo([[maybe_unused]] os_fd_t sockfd,
   return {false, WSAEOPNOTSUPP};
 }
 
-SysCallIntResult OsSysCallsImpl::getifaddrs(struct ifaddrs**) { NOT_IMPLEMENTED_GCOVR_EXCL_LINE; }
+bool OsSysCallsImpl::supportsGetifaddrs() const {
+  if (alternate_getifaddrs_.has_value()) {
+    return true;
+  }
+  return false;
+}
 
-void OsSysCallsImpl::freeifaddrs(struct ifaddrs*) { NOT_IMPLEMENTED_GCOVR_EXCL_LINE; }
+SysCallIntResult OsSysCallsImpl::getifaddrs([[maybe_unused]] InterfaceAddressVector& interfaces) {
+  if (alternate_getifaddrs_.has_value()) {
+    return alternate_getifaddrs_.value()(interfaces);
+  }
+  PANIC("not implemented");
+}
 
 } // namespace Api
 } // namespace Envoy

@@ -173,7 +173,10 @@ void BaseIntegrationTest::createEnvoy() {
         [lds_path](envoy::config::bootstrap::v3::Bootstrap& bootstrap) -> void {
           bootstrap.mutable_dynamic_resources()->mutable_lds_config()->set_resource_api_version(
               envoy::config::core::v3::V3);
-          bootstrap.mutable_dynamic_resources()->mutable_lds_config()->set_path(lds_path);
+          bootstrap.mutable_dynamic_resources()
+              ->mutable_lds_config()
+              ->mutable_path_config_source()
+              ->set_path(lds_path);
         });
   }
 
@@ -185,7 +188,8 @@ void BaseIntegrationTest::createEnvoy() {
   envoy::config::bootstrap::v3::Bootstrap bootstrap = config_helper_.bootstrap();
   if (use_lds_) {
     // After the config has been finalized, write the final listener config to the lds file.
-    const std::string lds_path = config_helper_.bootstrap().dynamic_resources().lds_config().path();
+    const std::string lds_path =
+        config_helper_.bootstrap().dynamic_resources().lds_config().path_config_source().path();
     envoy::service::discovery::v3::DiscoveryResponse lds;
     lds.set_version_info("0");
     for (auto& listener : config_helper_.bootstrap().static_resources().listeners()) {
@@ -486,13 +490,14 @@ AssertionResult BaseIntegrationTest::compareDiscoveryRequest(
     const std::vector<std::string>& expected_resource_names_added,
     const std::vector<std::string>& expected_resource_names_removed, bool expect_node,
     const Protobuf::int32 expected_error_code, const std::string& expected_error_substring) {
-  if (sotw_or_delta_ == Grpc::SotwOrDelta::Sotw) {
+  if (sotw_or_delta_ == Grpc::SotwOrDelta::Sotw ||
+      sotw_or_delta_ == Grpc::SotwOrDelta::UnifiedSotw) {
     return compareSotwDiscoveryRequest(expected_type_url, expected_version, expected_resource_names,
                                        expect_node, expected_error_code, expected_error_substring);
   } else {
     return compareDeltaDiscoveryRequest(expected_type_url, expected_resource_names_added,
                                         expected_resource_names_removed, expected_error_code,
-                                        expected_error_substring);
+                                        expected_error_substring, expect_node);
   }
 }
 
@@ -591,12 +596,14 @@ AssertionResult BaseIntegrationTest::compareDeltaDiscoveryRequest(
     const std::string& expected_type_url,
     const std::vector<std::string>& expected_resource_subscriptions,
     const std::vector<std::string>& expected_resource_unsubscriptions, FakeStreamPtr& xds_stream,
-    const Protobuf::int32 expected_error_code, const std::string& expected_error_substring) {
+    const Protobuf::int32 expected_error_code, const std::string& expected_error_substring,
+    bool expect_node) {
   envoy::service::discovery::v3::DeltaDiscoveryRequest request;
   VERIFY_ASSERTION(xds_stream->waitForGrpcMessage(*dispatcher_, request));
 
   // Verify all we care about node.
-  if (!request.has_node() || request.node().id().empty() || request.node().cluster().empty()) {
+  if (expect_node &&
+      (!request.has_node() || request.node().id().empty() || request.node().cluster().empty())) {
     return AssertionFailure() << "Weird node field";
   }
   last_node_.CopyFrom(request.node());
