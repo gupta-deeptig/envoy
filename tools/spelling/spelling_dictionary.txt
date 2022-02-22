@@ -21,6 +21,7 @@ ASSERTs
 AST
 AWS
 BACKTRACE
+BBR
 BSON
 BPF
 Repick
@@ -31,7 +32,9 @@ cbor
 CDN
 CDS
 CEL
+CWND
 DSR
+DSS
 EBADF
 ENOTCONN
 EPIPE
@@ -129,6 +132,8 @@ FQDN
 FREEBIND
 FUZZER
 FUZZERS
+dereferencing
+dnsresolvers
 guarddog
 GC
 GCC
@@ -146,7 +151,6 @@ GSS
 GTEST
 GURL
 Grabbit
-Hashable
 HC
 HCM
 HDS
@@ -204,6 +208,7 @@ MD
 MERCHANTABILITY
 Merkle
 MGET
+MPTCP
 MQ
 MSDN
 MSET
@@ -234,6 +239,8 @@ Nilsson
 Nonhashable
 Oauth
 OCSP
+OD
+ODCDS
 OID
 OK
 OOM
@@ -253,6 +260,7 @@ PEM
 PERF
 PGV
 PID
+PKCS12
 PKTINFO
 PNG
 Pointwise
@@ -367,6 +375,7 @@ UUID
 UUIDs
 VC
 VCHAR
+VCL
 VH
 VHDS
 VLOG
@@ -397,6 +406,7 @@ absl
 accesslog
 accessor
 accessors
+acked
 ackless
 acks
 acls
@@ -574,6 +584,7 @@ dedup
 dedupe
 deduplicate
 deduplicates
+deduplication
 deflater
 deletable
 deleter
@@ -636,6 +647,7 @@ evbuffer
 evbuffers
 evconnlistener
 evented
+eventfd
 evwatch
 exe
 execlp
@@ -700,6 +712,7 @@ handshaker
 hardcoded
 hardcodes
 hardcoding
+hashable
 hasher
 hashtagging
 hd
@@ -733,6 +746,7 @@ inflater
 inflight
 -ing
 init
+initialize
 initializer
 initializers
 inlined
@@ -746,6 +760,7 @@ interpretable
 intra
 ints
 invariance
+invoker
 iovec
 iovecs
 ips
@@ -766,6 +781,7 @@ keyder
 kqueue
 kubernetes
 kv
+kvlist
 kvs
 lala
 latencies
@@ -842,6 +858,7 @@ multi
 multicast
 multikill
 multimap
+multiple
 multivalue
 mutator
 mutex
@@ -859,6 +876,7 @@ nan
 nanos
 natively
 ndk
+negative
 netblock
 netblocks
 netfilter
@@ -995,6 +1013,7 @@ ratelimited
 ratelimiter
 rawseti
 rc
+rdsone
 readded
 readonly
 readv
@@ -1004,6 +1023,7 @@ rebalancer
 rebalancing
 rebuffer
 rebuilder
+receival
 reconnection
 recurse
 recv
@@ -1099,6 +1119,7 @@ siginfo
 signalstack
 siloed
 sim
+sinked
 sizeof
 smatch
 snapshotted
@@ -1114,6 +1135,7 @@ spdlog
 splitter
 spoofable
 src
+srtt
 ssize
 stackdriver
 stacktrace
@@ -1157,6 +1179,7 @@ subsetting
 substr
 substring
 substrings
+subtree
 subtrees
 subtype
 subtypes
@@ -1307,3 +1330,5 @@ ep
 suri
 transid
 routable
+vhosts
+infos

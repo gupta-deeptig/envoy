@@ -261,7 +261,7 @@ modify different aspects of the server:
 
 .. http:get:: /init_dump
 
-  Dump currently information of unready targets of various Envoy components as JSON-serialized proto
+  Dump current information of unready targets of various Envoy components as JSON-serialized proto
   messages. See the :ref:`response definition <envoy_v3_api_msg_admin.v3.UnreadyTargetsDumps>` for more
   information.
 
@@ -292,10 +292,11 @@ modify different aspects of the server:
 
 .. http:post:: /logging
 
-  Enable/disable different logging levels on a particular logger or all loggers.
+  Enable/disable logging levels for different loggers.
 
   - To change the logging level across all loggers, set the query parameter as level=<desired_level>.
   - To change a particular logger's level, set the query parameter like so, <logger_name>=<desired_level>.
+  - To change multiple logging levels at once, set the query parameter as paths=<logger_name1>=<desired_level1>,<logger_name2>=<desired_level2>.
   - To list the loggers, send a POST request to the /logging endpoint without a query parameter.
 
   .. note::
@@ -509,11 +510,25 @@ modify different aspects of the server:
   Outputs /stats in `Prometheus <https://prometheus.io/docs/instrumenting/exposition_formats/>`_
   v0.0.4 format. This can be used to integrate with a Prometheus server.
 
-  You can optionally pass the ``usedonly`` URL query argument to only get statistics that
-  Envoy has updated (counters incremented at least once, gauges changed at least once,
-  and histograms added to at least once)
+  .. http:get:: /stats?format=prometheus&usedonly
 
-  .. http:get:: /stats/recentlookups
+  You can optionally pass the ``usedonly`` URL query parameter to only get statistics that
+  Envoy has updated (counters incremented at least once, gauges changed at least once,
+  and histograms added to at least once).
+
+  .. http:get:: /stats?format=prometheus&text_readouts
+
+  Optional ``text_readouts`` query parameter is used to get all stats including text readouts.
+  Text readout stats are returned in gauge format. These gauges always have value 0. Each
+  gauge record has additional label named ``text_value`` that contains value of a text readout.
+
+  .. warning::
+    Every unique combination of key-value label pair represents a new time series
+    in Prometheus, which can dramatically increase the amount of data stored.
+    Text readout stats create a new label value every time the value
+    of the text readout stat changes, which could create an unbounded number of time series.
+
+.. http:get:: /stats/recentlookups
 
   This endpoint helps Envoy developers debug potential contention
   issues in the stats system. Initially, only the count of StatName

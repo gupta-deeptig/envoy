@@ -40,6 +40,18 @@ public:
   choosePriority(uint64_t hash, const HealthyLoad& healthy_per_priority_load,
                  const DegradedLoad& degraded_per_priority_load);
 
+  // Pool selection not implemented.
+  absl::optional<Upstream::SelectedPoolAndConnection>
+  selectExistingConnection(Upstream::LoadBalancerContext* /*context*/,
+                           const Upstream::Host& /*host*/,
+                           std::vector<uint8_t>& /*hash_key*/) override {
+    return absl::nullopt;
+  }
+  // Lifetime tracking not implemented.
+  OptRef<Envoy::Http::ConnectionPool::ConnectionLifetimeCallbacks> lifetimeCallbacks() override {
+    return {};
+  }
+
 protected:
   /**
    * For the given host_set @return if we should be in a panic mode or not. For example, if the
@@ -324,26 +336,30 @@ private:
 
   HostSet& localHostSet() const { return *local_priority_set_->hostSetsPerPriority()[0]; }
 
-  static HostsSource::SourceType localitySourceType(HostAvailability host_availability) {
+  static absl::optional<HostsSource::SourceType>
+  localitySourceType(HostAvailability host_availability) {
     switch (host_availability) {
     case HostAvailability::Healthy:
-      return HostsSource::SourceType::LocalityHealthyHosts;
+      return absl::make_optional<HostsSource::SourceType>(
+          HostsSource::SourceType::LocalityHealthyHosts);
     case HostAvailability::Degraded:
-      return HostsSource::SourceType::LocalityDegradedHosts;
-    default:
-      NOT_REACHED_GCOVR_EXCL_LINE;
+      return absl::make_optional<HostsSource::SourceType>(
+          HostsSource::SourceType::LocalityDegradedHosts);
     }
+    IS_ENVOY_BUG("unexpected locality source type enum");
+    return absl::nullopt;
   }
 
-  static HostsSource::SourceType sourceType(HostAvailability host_availability) {
+  static absl::optional<HostsSource::SourceType> sourceType(HostAvailability host_availability) {
     switch (host_availability) {
     case HostAvailability::Healthy:
-      return HostsSource::SourceType::HealthyHosts;
+      return absl::make_optional<HostsSource::SourceType>(HostsSource::SourceType::HealthyHosts);
     case HostAvailability::Degraded:
-      return HostsSource::SourceType::DegradedHosts;
-    default:
-      NOT_REACHED_GCOVR_EXCL_LINE;
+      return absl::make_optional<HostsSource::SourceType>(HostsSource::SourceType::DegradedHosts);
     }
+
+    IS_ENVOY_BUG("unexpected source type enum");
+    return absl::nullopt;
   }
 
   // The set of local Envoy instances which are load balancing across priority_set_.
@@ -368,6 +384,8 @@ private:
   std::vector<PerPriorityStatePtr> per_priority_state_;
   Common::CallbackHandlePtr priority_update_cb_;
   Common::CallbackHandlePtr local_priority_set_member_update_cb_handle_;
+
+  friend class TestZoneAwareLoadBalancer;
 };
 
 /**

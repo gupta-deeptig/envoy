@@ -1,5 +1,7 @@
 #include "test/tools/schema_validator/validator.h"
 
+#include "envoy/config/bootstrap/v3/bootstrap.pb.h"
+#include "envoy/config/bootstrap/v3/bootstrap.pb.validate.h"
 #include "envoy/config/route/v3/route.pb.h"
 #include "envoy/config/route/v3/route.pb.validate.h"
 #include "envoy/service/discovery/v3/discovery.pb.h"
@@ -11,18 +13,21 @@
 
 namespace Envoy {
 
+const std::string Schema::BOOTSTRAP = "bootstrap";
 const std::string Schema::DISCOVERY_RESPONSE = "discovery_response";
 const std::string Schema::ROUTE = "route";
 
 const std::string& Schema::toString(Type type) {
   switch (type) {
+  case Type::Bootstrap:
+    return BOOTSTRAP;
   case Type::DiscoveryResponse:
     return DISCOVERY_RESPONSE;
   case Type::Route:
     return ROUTE;
   }
 
-  NOT_REACHED_GCOVR_EXCL_LINE;
+  PANIC("reached unexpected code");
 }
 
 Options::Options(int argc, char** argv) {
@@ -31,8 +36,9 @@ Options::Options(int argc, char** argv) {
                                            "", "string", cmd);
   TCLAP::ValueArg<std::string> schema_type(
       "t", "schema-type",
-      "Type of schema to validate the configuration against. Supported schema is: 'route'.", true,
-      "", "string", cmd);
+      "Type of schema to validate the configuration against. "
+      "Supported schema is: 'route', 'discovery_response', 'bootstrap'.",
+      true, "", "string", cmd);
 
   try {
     cmd.parse(argc, argv);
@@ -45,6 +51,8 @@ Options::Options(int argc, char** argv) {
     schema_type_ = Schema::Type::Route;
   } else if (schema_type.getValue() == Schema::toString(Schema::Type::DiscoveryResponse)) {
     schema_type_ = Schema::Type::DiscoveryResponse;
+  } else if (schema_type.getValue() == Schema::toString(Schema::Type::Bootstrap)) {
+    schema_type_ = Schema::Type::Bootstrap;
   } else {
     std::cerr << "error: unknown schema type '" << schema_type.getValue() << "'" << std::endl;
     exit(EXIT_FAILURE);
@@ -68,8 +76,12 @@ void Validator::validate(const std::string& config_path, Schema::Type schema_typ
     TestUtility::validate(route_config);
     break;
   }
-  default:
-    NOT_REACHED_GCOVR_EXCL_LINE;
+  case Schema::Type::Bootstrap: {
+    envoy::config::bootstrap::v3::Bootstrap bootstrap;
+    TestUtility::loadFromFile(config_path, bootstrap, *api_);
+    TestUtility::validate(bootstrap);
+    break;
+  }
   }
 }
 
