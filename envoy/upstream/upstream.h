@@ -553,6 +553,7 @@ public:
   COUNTER(upstream_cx_http2_total)                                                                 \
   COUNTER(upstream_cx_http3_total)                                                                 \
   COUNTER(upstream_cx_idle_timeout)                                                                \
+  COUNTER(upstream_cx_max_duration_reached)                                                        \
   COUNTER(upstream_cx_max_requests)                                                                \
   COUNTER(upstream_cx_none_healthy)                                                                \
   COUNTER(upstream_cx_overflow)                                                                    \
@@ -745,14 +746,11 @@ public:
   virtual const absl::optional<std::chrono::milliseconds> idleTimeout() const PURE;
 
   /**
-<<<<<<< HEAD
    * @return optional maximum connection duration timeout for manager connections.
    */
   virtual const absl::optional<std::chrono::milliseconds> maxConnectionDuration() const PURE;
 
   /**
-=======
->>>>>>> parent of da9331114... Changes to support connection duration for upstream connections
    * @return how many streams should be anticipated per each current stream.
    */
   virtual float perUpstreamPreconnectRatio() const PURE;

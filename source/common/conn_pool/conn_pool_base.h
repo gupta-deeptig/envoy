@@ -45,6 +45,9 @@ public:
   // Called if the connection does not complete within the cluster's connectTimeout()
   void onConnectTimeout();
 
+  // Called if the maximum connection duration is reached.
+  void onConnectionDurationTimeout();
+
   // Returns the concurrent stream limit, accounting for if the total stream limit
   // is less than the concurrent stream limit.
   virtual uint32_t effectiveConcurrentStreamLimit() const {
