@@ -428,7 +428,7 @@ void DefaultCertValidator::addClientValidationContext(SSL_CTX* ctx, bool require
   }
   // Set the verify_depth
   if (config_->maxVerifyDepth() != absl::nullopt) {
-      SSL_CTX_set_verify_depth(ctx, config_->maxVerifyDepth().value());
+    SSL_CTX_set_verify_depth(ctx, config_->maxVerifyDepth().value());
   }
 }
 

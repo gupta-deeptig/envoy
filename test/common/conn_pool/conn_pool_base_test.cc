@@ -507,16 +507,20 @@ TEST_F(ConnPoolImplBaseTest, MaxDurationReachedNoActiveStream) {
   const std::chrono::milliseconds timeout_40ms_{40};
   ON_CALL(*cluster_, maxConnectionDuration()).WillByDefault(Return(timeout_40ms_));
 
-  NiceMock<Event::MockTimer> *duration_timer_ = new NiceMock<Event::MockTimer>();
-  NiceMock<Event::MockTimer> *connect_timer_ = new NiceMock<Event::MockTimer>();
+  NiceMock<Event::MockTimer>* duration_timer_ = new NiceMock<Event::MockTimer>();
+  NiceMock<Event::MockTimer>* connect_timer_ = new NiceMock<Event::MockTimer>();
   Event::TimerCb duration_cb_;
-  
+
   testing::InSequence s;
   EXPECT_CALL(pool_, instantiateActiveClient);
-  EXPECT_CALL(dispatcher_, createTimer_(_)).Times(2).WillOnce(Return(connect_timer_)).WillOnce(Invoke([&](Event::TimerCb cb2) {
-      duration_cb_ = cb2;
-      return duration_timer_;;
-  }));
+  EXPECT_CALL(dispatcher_, createTimer_(_))
+      .Times(2)
+      .WillOnce(Return(connect_timer_))
+      .WillOnce(Invoke([&](Event::TimerCb cb2) {
+        duration_cb_ = cb2;
+        return duration_timer_;
+        ;
+      }));
 
   // Verify timer enabled for specified duration
   EXPECT_CALL(*duration_timer_, enableTimer(timeout_40ms_, _));
@@ -539,7 +543,6 @@ TEST_F(ConnPoolImplBaseTest, MaxDurationReachedNoActiveStream) {
   duration_cb_();
   EXPECT_EQ(1U, cluster_->stats_.upstream_cx_max_duration_reached_.value());
   ASSERT_EQ(ActiveClient::State::CLOSED, clients_.back()->state());
-
 }
 
 // MaxConnection duration reached with Active Streams, drains connection
@@ -548,16 +551,20 @@ TEST_F(ConnPoolImplBaseTest, MaxDurationReachedActiveStream) {
   const std::chrono::milliseconds timeout_40ms_{40};
   ON_CALL(*cluster_, maxConnectionDuration()).WillByDefault(Return(timeout_40ms_));
 
-  NiceMock<Event::MockTimer> *duration_timer_ = new NiceMock<Event::MockTimer>();
-  NiceMock<Event::MockTimer> *connect_timer_ = new NiceMock<Event::MockTimer>();
+  NiceMock<Event::MockTimer>* duration_timer_ = new NiceMock<Event::MockTimer>();
+  NiceMock<Event::MockTimer>* connect_timer_ = new NiceMock<Event::MockTimer>();
   Event::TimerCb duration_cb_;
-  
+
   testing::InSequence s;
   EXPECT_CALL(pool_, instantiateActiveClient);
-  EXPECT_CALL(dispatcher_, createTimer_(_)).Times(2).WillOnce(Return(connect_timer_)).WillOnce(Invoke([&](Event::TimerCb cb2) {
-      duration_cb_ = cb2;
-      return duration_timer_;;
-  }));
+  EXPECT_CALL(dispatcher_, createTimer_(_))
+      .Times(2)
+      .WillOnce(Return(connect_timer_))
+      .WillOnce(Invoke([&](Event::TimerCb cb2) {
+        duration_cb_ = cb2;
+        return duration_timer_;
+        ;
+      }));
   EXPECT_CALL(*duration_timer_, enableTimer(timeout_40ms_, _));
 
   // Create a new stream using the pool
@@ -572,7 +579,7 @@ TEST_F(ConnPoolImplBaseTest, MaxDurationReachedActiveStream) {
   duration_cb_();
   EXPECT_EQ(1U, cluster_->stats().upstream_cx_max_duration_reached_.value());
   ASSERT_EQ(ActiveClient::State::DRAINING, clients_.back()->state());
-  
+
   // Draining connection closes after stream is closed
   EXPECT_CALL(*duration_timer_, disableTimer);
 
@@ -580,7 +587,6 @@ TEST_F(ConnPoolImplBaseTest, MaxDurationReachedActiveStream) {
   pool_.onStreamClosed(*clients_.back(), false);
   ASSERT_EQ(ActiveClient::State::CLOSED, clients_.back()->state());
 }
-
 
 } // namespace ConnectionPool
 } // namespace Envoy

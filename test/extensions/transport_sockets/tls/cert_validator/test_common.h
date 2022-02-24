@@ -34,15 +34,16 @@ class TestCertificateValidationContextConfig
     : public Envoy::Ssl::CertificateValidationContextConfig {
 public:
   TestCertificateValidationContextConfig(
-      envoy::config::core::v3::TypedExtensionConfig custom_config, bool allow_expired_certificate = false,
+      envoy::config::core::v3::TypedExtensionConfig custom_config,
+      bool allow_expired_certificate = false,
       std::vector<envoy::extensions::transport_sockets::tls::v3::SubjectAltNameMatcher>
-          san_matchers = {}, std::string ca_cert = "", absl::optional<uint32_t> verify_depth = absl::nullopt)
+          san_matchers = {},
+      std::string ca_cert = "", absl::optional<uint32_t> verify_depth = absl::nullopt)
       : allow_expired_certificate_(allow_expired_certificate), api_(Api::createApiForTest()),
-        custom_validator_config_(custom_config), san_matchers_(san_matchers),
-        ca_cert_(ca_cert), max_verify_depth_(verify_depth){};
+        custom_validator_config_(custom_config), san_matchers_(san_matchers), ca_cert_(ca_cert),
+        max_verify_depth_(verify_depth){};
   TestCertificateValidationContextConfig()
       : api_(Api::createApiForTest()), custom_validator_config_(absl::nullopt){};
-
 
   const std::string& caCert() const override { return ca_cert_; }
   const std::string& caCertPath() const override { return ca_cert_path_; }
@@ -79,7 +80,7 @@ public:
   Api::Api& api() const override { return *api_; }
   bool onlyVerifyLeafCertificateCrl() const override { return false; }
 
-  const absl::optional<uint32_t> maxVerifyDepth() const override { return max_verify_depth_; } 
+  const absl::optional<uint32_t> maxVerifyDepth() const override { return max_verify_depth_; }
 
 private:
   bool allow_expired_certificate_{false};
@@ -90,7 +91,6 @@ private:
   const std::string ca_cert_;
   const std::string ca_cert_path_{"TEST_CA_CERT_PATH"};
   const absl::optional<uint32_t> max_verify_depth_{absl::nullopt};
-  
 };
 
 } // namespace Tls

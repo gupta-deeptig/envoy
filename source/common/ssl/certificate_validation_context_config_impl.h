@@ -71,7 +71,7 @@ private:
   const absl::optional<envoy::config::core::v3::TypedExtensionConfig> custom_validator_config_;
   Api::Api& api_;
   const bool only_verify_leaf_cert_crl_;
-  const absl::optional <uint32_t> max_verify_depth_;
+  const absl::optional<uint32_t> max_verify_depth_;
 };
 
 } // namespace Ssl
