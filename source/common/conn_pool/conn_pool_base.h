@@ -120,7 +120,6 @@ public:
   Stats::TimespanPtr conn_connect_ms_;
   Stats::TimespanPtr conn_length_;
   Event::TimerPtr connect_timer_;
-  Event::TimerPtr connection_duration_timer_;
   bool resources_released_{false};
   bool timed_out_{false};
 

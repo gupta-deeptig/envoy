@@ -431,12 +431,6 @@ void ConnPoolImplBase::onConnectionEvent(ActiveClient& client, absl::string_view
 
   if (event == Network::ConnectionEvent::RemoteClose ||
       event == Network::ConnectionEvent::LocalClose) {
-
-    if (client.connection_duration_timer_ ) {
-        client.connection_duration_timer_->disableTimer();
-        client.connection_duration_timer_.reset();
-    }
-
     state_.decrConnectingAndConnectedStreamCapacity(client.currentUnusedCapacity());
     // Make sure that onStreamClosed won't double count.
     client.remaining_streams_ = 0;
@@ -617,10 +611,6 @@ ActiveClient::ActiveClient(ConnPoolImplBase& parent, uint32_t lifetime_stream_li
   conn_length_ = std::make_unique<Stats::HistogramCompletableTimespanImpl>(
       parent_.host()->cluster().stats().upstream_cx_length_ms_, parent_.dispatcher().timeSource());
   connect_timer_->enableTimer(parent_.host()->cluster().connectTimeout());
-  if (parent_.host()->cluster().maxConnectionDuration() != absl::nullopt) {
-     connection_duration_timer_ = parent_.dispatcher().createTimer([this]() -> void { onConnectionDurationTimeout(); });
-     connection_duration_timer_->enableTimer(parent_.host()->cluster().maxConnectionDuration().value());
-  }
   parent_.host()->stats().cx_total_.inc();
   parent_.host()->stats().cx_active_.inc();
   parent_.host()->cluster().stats().upstream_cx_total_.inc();

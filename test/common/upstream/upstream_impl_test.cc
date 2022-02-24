@@ -3211,64 +3211,6 @@ TEST_F(ClusterInfoImplTest, TestTrackTimeoutBudgetsNotSetInConfig) {
   EXPECT_FALSE(cluster->info()->timeoutBudgetStats().has_value());
 }
 
-TEST_F(ClusterInfoImplTest, ConnectionDuration) {
-  const std::string yaml = R"EOF(
-    name: name
-    connect_timeout: 0.25s
-    type: STRICT_DNS
-    lb_policy: MAGLEV
-    load_assignment:
-        endpoints:
-          - lb_endpoints:
-            - endpoint:
-                address:
-                  socket_address:
-                    address: foo.bar.com
-                    port_value: 443
-    metadata: { filter_metadata: { com.bar.foo: { baz: test_value },
-                                   baz: {name: meh } } }
-    common_lb_config:
-      healthy_panic_threshold:
-        value: 0.3
-  )EOF";
-
-  BazFactory baz_factory;
-  Registry::InjectFactory<ClusterTypedMetadataFactory> registered_factory(baz_factory);
-  auto cluster1 = makeCluster(yaml);
-  ASSERT_FALSE(cluster1->info()->maxConnectionDuration().has_value());
-
-  const std::string conn_duration = R"EOF(
-    typed_extension_protocol_options:
-      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
-        "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
-        explicit_http_config:
-          http_protocol_options: {}
-        common_http_protocol_options:
-          max_connection_duration: 30s
-  )EOF";
-
-  {
-    auto cluster2 = makeCluster(yaml + conn_duration);
-    ASSERT_TRUE(cluster2->info()->maxConnectionDuration().has_value());
-    EXPECT_EQ(std::chrono::seconds(30), cluster2->info()->maxConnectionDuration().value());
-  }
-
-  const std::string zero_duration = R"EOF(
-    typed_extension_protocol_options:
-      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
-        "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
-        explicit_http_config:
-          http_protocol_options: {}
-        common_http_protocol_options:
-          max_connection_duration: 0s
-  )EOF";
-
-  {
-    auto cluster3 = makeCluster(yaml + zero_duration);
-    EXPECT_FALSE(cluster3->info()->maxConnectionDuration().has_value());
-  }
-}
-
 TEST_F(ClusterInfoImplTest, TestTrackTimeoutBudgets) {
   // Check that with the flag, the histogram is created.
   const std::string yaml = R"EOF(
